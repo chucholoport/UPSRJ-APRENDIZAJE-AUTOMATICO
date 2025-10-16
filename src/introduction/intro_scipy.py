@@ -32,7 +32,7 @@ def solve_linear(A: np.ndarray, b: np.ndarray) -> np.ndarray:
     - np.ndarray
         Solución del sistema lineal como vector columna.
     """
-    solution = None
+    solution = np.linalg.solve(A, b)
     return solution
 
 # Ejercicio 2
@@ -52,8 +52,8 @@ def get_matrix_properties(mat: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     - tuple: (det, inv)
         Determinante y matriz inversa.
     """
-    det = None
-    inv = None
+    det = np.linalg.det(mat)
+    inv = np.linalg.inv(mat)
     return (det, inv)
 
 # Ejercicio 3
@@ -74,9 +74,9 @@ def get_statistics(arg: np.ndarray) -> tuple[float, float, float]:
     - tuple: (mean, tstd, mode)
         Media, desviación estándar y moda como flotantes.
     """
-    mean = None
-    tstd = None
-    mode = None
+    mean =  float(np.mean(arg))
+    tstd = float(np.std(arg, ddof=1))
+    mode = float(stats.mode(arg, keepdims=True)[0][0])
     return (mean, tstd, mode)
 
 # Ejercicio 4
@@ -95,14 +95,14 @@ def find_min(fun: Callable[[float], float]) -> optimize.OptimizeResult:
     - OptimizeResult
         Objeto con los resultados de la optimización.
     """
-    found_min = None
+    found_min = optimize.minimize_scalar(fun) 
     return found_min
 
 # Ejercicio 5
 #
 # TODO: Crea una función "get_spectrum" que devuelva el espectro de una señal compuesta
 # NOTE: https://docs.scipy.org/doc/scipy/reference/generated/scipy.fft.fft.html
-def get_spectrum(signal: np.ndarray, sample_rate: float) -> tuple[np.ndarray, np.ndarray]:
+def get_spectrum(signal_pass: np.ndarray, sample_rate: float) -> tuple[np.ndarray, np.ndarray]:
     """
     Calcula el espectro de una señal compuesta usando FFT.
 
@@ -116,15 +116,37 @@ def get_spectrum(signal: np.ndarray, sample_rate: float) -> tuple[np.ndarray, np
     - tuple: (frecuencias, magnitudes)
         Frecuencias positivas y sus magnitudes correspondientes.
     """
-    spectrum = None
-    return spectrum
+    N = len(signal_pass)
+    
+    # Calcular frecuencias (solo positivas)
+    frequencies = np.fft.fftfreq(N, 1 / sample_rate)
+    positive_indices = frequencies >= 0
+    frequencies_positive = frequencies[positive_indices]
+    K = len(frequencies_positive)
+    
+    # Pre-calcular ángulos para optimización
+    magnitudes = np.zeros(K)
+    
+    for k in range(K):
+        freq = frequencies_positive[k]
+        real_sum = 0.0
+        imag_sum = 0.0
+        
+        for n in range(N):
+            angle = 2 * np.pi * freq * n / sample_rate
+            real_sum += signal_pass[n] * np.cos(angle)
+            imag_sum -= signal_pass[n] * np.sin(angle)  # Negativo por convención
+        
+        magnitudes[k] = np.sqrt(real_sum**2 + imag_sum**2) / N
+    
+    return (frequencies_positive, magnitudes)
 
 # Ejercicio 6
 #
 # TODO: Crea una función "low_pass_filter" que aplique un filtro pasa bajas Butterworth sobre una señal con ruido. 
 # NOTE: https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.butter.html
 #       https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.filtfilt.html
-def low_pass_filter(signal: np.ndarray, fs: float, cutoff: float = 10.0, order: int = 4) -> np.ndarray:
+def low_pass_filter(signal_data: np.ndarray, fs: float, cutoff: float = 10.0, order: int = 4) -> np.ndarray:
     """
     Aplica un filtro pasa-bajas Butterworth a una señal con ruido.
 
@@ -142,5 +164,14 @@ def low_pass_filter(signal: np.ndarray, fs: float, cutoff: float = 10.0, order: 
     - np.ndarray
         Señal filtrada.
     """
-    clean_signal = None
+    nyquist_freq = 0.5 * fs
+    
+    # Normaliza la frecuencia de corte (rango 0-1, donde 1 = Nyquist)
+    normal_cutoff = cutoff / nyquist_freq
+    
+    # Diseña el filtro Butterworth (coeficientes a y b)
+    b, a = signal.butter(N=order, Wn=normal_cutoff, btype='low', analog=False)
+    
+    # Filtro en ambas direcciones para eliminar el desfase
+    clean_signal = signal.filtfilt(b, a, signal_data)
     return clean_signal

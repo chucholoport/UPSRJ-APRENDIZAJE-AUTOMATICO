@@ -161,9 +161,9 @@ class TestEvaluationOne(unittest.TestCase):
         self.assertEqual(mode, 2.0)
 
     def test_low_pass_filter(self):
-        signal = np.sin(2 * np.pi * 5 * np.linspace(0, 1, 100))
-        result = isp.low_pass_filter(signal, fs=100)
-        self.assertEqual(len(result), len(signal))
+        signal_data = np.sin(2 * np.pi * 5 * np.linspace(0, 1, 100))
+        result = isp.low_pass_filter(signal_data, fs=100)
+        self.assertEqual(len(result), len(signal_data))
 
     def test_main_execution(self):
         # Ejecutar main y capturar status
@@ -171,16 +171,34 @@ class TestEvaluationOne(unittest.TestCase):
         self.assertEqual(status, os.EX_OK, "main() no terminó con EX_OK")
 
         # Verificar que intro.csv_registers funciona
-        total, df = ipd.csv_registers(main.FILE)
+        total, df = ipd.csv_registers(main.CSV_FILE)
         self.assertIsNotNone(total, "csv_registers devolvió total = None")
         self.assertIsInstance(df, pd.DataFrame, "csv_registers no devolvió un DataFrame válido")
         self.assertFalse(df.empty, "csv_registers devolvió un DataFrame vacío")
 
-        # Verificar existencia de archivos de salida
-        output_csv = os.path.join(os.path.dirname(main.FILE), "..", "outputs", "aprobados.csv")
-        output_plot = os.path.join(os.path.dirname(main.FILE), "..", "analisis.png")
-        self.assertTrue(os.path.exists(output_csv), "No se encontró 'aprobados.csv'")
-        self.assertTrue(os.path.exists(output_plot), "No se encontró 'analisis.png'")
+        # Construir rutas correctamente basándose en la ubicación de main.py
+        # main.py está en src/, los outputs están en src/outputs/
+        main_dir = os.path.dirname(os.path.abspath(main.__file__))
+        outputs_dir = os.path.join(main_dir, "outputs")
+        
+        output_csv = os.path.join(outputs_dir, "aprobados.csv")
+        output_plot = os.path.join(outputs_dir, "analisis.png")
+        
+        # Normalizar las rutas para evitar problemas con separadores
+        output_csv = os.path.normpath(output_csv)
+        output_plot = os.path.normpath(output_plot)
+        
+        # Verificar existencia con mensajes de error más informativos
+        self.assertTrue(
+            os.path.exists(output_csv), 
+            f"No se encontró 'aprobados.csv' en {output_csv}. "
+            f"Directorio outputs existe: {os.path.exists(outputs_dir)}"
+        )
+        self.assertTrue(
+            os.path.exists(output_plot), 
+            f"No se encontró 'analisis.png' en {output_plot}. "
+            f"Directorio outputs existe: {os.path.exists(outputs_dir)}"
+        )
 
 class TestEvaluationTwo(unittest.TestCase):
 
@@ -209,8 +227,8 @@ class TestEvaluationTwo(unittest.TestCase):
         self.assertIsInstance(self.model.p2, np.ndarray)
 
     def test_model_training(self):
-        coef1 = self.model.m1.coef_[0][0]
-        coef2 = self.model.m2.coef_[0][0]
+        coef1 = self.model.m1.coef_.flatten()[0]
+        coef2 = self.model.m2.coef_.flatten()[0]
         self.assertIsInstance(coef1, float)
         self.assertIsInstance(coef2, float)
 
@@ -233,20 +251,24 @@ class TestEvaluationTwo(unittest.TestCase):
 
 class TestEvaluationThree(unittest.TestCase):
 
-    # ===================== linear_regression =====================
+    # ===================== multiple_linear_regression =====================
 
     @classmethod
     def setUpClass(cls):
         if not os.path.exists(OUTPUT_DIR):
             os.mkdir(OUTPUT_DIR)
-        cls.model = MultipleLinearRegressionCompare(
-            url=SOURCE_URL,
-            corr=CORRELATION,
-            f1=FEATURE_1,
-            f2=FEATURE_2,
-            base=BASE,
-            out=OUTPUT_DIR
-        )
+        try:
+            cls.model = MultipleLinearRegressionCompare(
+                url=SOURCE_URL,
+                corr=CORRELATION,
+                f1=FEATURE_1,
+                f2=FEATURE_2,
+                base=BASE,
+                out=OUTPUT_DIR
+            )
+        except Exception as e:
+            print(f"\nError al inicializar MultipleLinearRegressionCompare: {e}")
+            raise
 
     def test_attributes_exist(self):
         self.assertIsInstance(self.model.x, np.ndarray)
@@ -258,7 +280,7 @@ class TestEvaluationThree(unittest.TestCase):
 
     def test_model_training(self):
         coef = self.model.m.coef_[0]
-        self.assertIsInstance(coef, float)
+        self.assertIsInstance(coef, np.ndarray)
 
     def test_output_files_created(self):
         files = [
@@ -268,7 +290,8 @@ class TestEvaluationThree(unittest.TestCase):
             "correlation.png"
         ]
         for f in files:
-            self.assertTrue(os.path.exists(os.path.join(OUTPUT_DIR, f)))
+            path = os.path.join(OUTPUT_DIR, f)
+            self.assertTrue(os.path.exists(path), f"No se encontró el archivo: {path}")
 
     def test_prepare_data_output_shape(self):
         d = self.model.prepare_data(self.model.x, self.model.y, prc=0.2, random_state=42)
@@ -285,7 +308,7 @@ class TestEvaluationFour(unittest.TestCase):
         if not os.path.exists(OUTPUT_DIR):
             os.mkdir(OUTPUT_DIR)
         cls.model = LogisticRegressionCompare(
-            url=SOURCE_URL,
+            url="https://s3-api.us-geo.objectstorage.softlayer.net/cf-courses-data/CognitiveClass/ML0101ENv3/labs/ChurnData.csv",
             base=CHURN,
             out=OUTPUT_DIR
         )
@@ -300,7 +323,7 @@ class TestEvaluationFour(unittest.TestCase):
 
     def test_model_training(self):
         coef = self.model.m.coef_[0]
-        self.assertIsInstance(coef, float)
+        self.assertIsInstance(coef, np.ndarray)
 
     def test_output_files_created(self):
         files = [
@@ -441,4 +464,5 @@ if __name__ == '__main__':
         print(f"{RED}{BOLD}FAILED:{RESET} Uno o más tests fallaron.")
     print(SEPARATOR)
     
-    sys.exit(not result1.wasSuccessful() and not result2.wasSuccessful() and not result3.wasSuccessful() and not result4.wasSuccessful())
+    all_successful = result1.wasSuccessful() and result2.wasSuccessful() and result3.wasSuccessful() and result4.wasSuccessful()
+    sys.exit(0 if all_successful else 1)

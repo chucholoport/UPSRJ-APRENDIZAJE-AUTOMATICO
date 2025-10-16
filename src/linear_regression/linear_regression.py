@@ -15,7 +15,7 @@ from sklearn import linear_model
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
-from regression_models.data_source import DataSource as ds
+from linear_regression.data_source import DataSource as ds
 
 class LinearRegressionCompare:
     def __init__(self, url: str, hist: str, base: str, f1: str, f2: str, out: str):
@@ -79,16 +79,15 @@ class LinearRegressionCompare:
         Returns:
             tuple: (x_train, x_test, y_train, y_test)
         """
-        x_train, x_test, y_train, y_test = train_test_split(
-        x, y, 
-        test_size=prc, 
-        random_state=random_state)
+        # Usar train_test_split para dividir los datos
+        x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=prc, random_state=random_state)
         return (x_train, x_test, y_train, y_test)
     
     # TODO: Define un método que devuelva un objeto "linear_model.LinearRegression" de scikit-learn.
     # NOTE: https://scikit-learn.org/stable/modules/linear_model.html
     def create_model(self) -> linear_model.LinearRegression:
         """
+        
         Crea un modelo de regresión lineal.
 
         Returns:
